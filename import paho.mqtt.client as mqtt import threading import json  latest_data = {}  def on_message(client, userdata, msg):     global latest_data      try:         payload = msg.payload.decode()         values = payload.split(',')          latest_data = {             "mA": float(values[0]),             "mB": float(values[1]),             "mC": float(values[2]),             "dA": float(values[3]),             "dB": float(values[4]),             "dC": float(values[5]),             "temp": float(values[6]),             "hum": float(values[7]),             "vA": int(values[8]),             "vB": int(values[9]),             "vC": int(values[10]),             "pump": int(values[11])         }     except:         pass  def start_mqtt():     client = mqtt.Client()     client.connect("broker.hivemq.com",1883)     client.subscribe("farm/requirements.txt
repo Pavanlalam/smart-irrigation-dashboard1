@@ -1,4 +1,0 @@
-streamlit
-paho-mqtt
-pandas
-scikit-learn
