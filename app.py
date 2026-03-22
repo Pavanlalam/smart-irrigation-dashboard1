@@ -1,41 +1,61 @@
 import streamlit as st
 import time
-from backend import latest, model
+from mqtt_client import latest_data, run_mqtt
+from model import model
+
+st.set_page_config(page_title="Smart Irrigation", layout="wide")
 
 st.title("🌱 Smart Irrigation Dashboard")
 
+# Start MQTT thread only once
+if "mqtt_started" not in st.session_state:
+    run_mqtt()
+    st.session_state["mqtt_started"] = True
+
+placeholder = st.empty()
+
 while True:
 
-    if latest:
+    with placeholder.container():
 
-        st.subheader("📊 Live Data")
+        if latest_data:
 
-        st.write("Moisture A:", latest["mA"])
-        st.write("Moisture B:", latest["mB"])
-        st.write("Moisture C:", latest["mC"])
+            st.subheader("📊 Live Sensor Data")
 
-        st.write("Pump:", "ON" if latest["pump"] else "OFF")
+            col1, col2, col3 = st.columns(3)
 
-        st.write("Valve A:", latest["vA"])
-        st.write("Valve B:", latest["vB"])
-        st.write("Valve C:", latest["vC"])
+            col1.metric("Moisture A", latest_data["mA"])
+            col2.metric("Moisture B", latest_data["mB"])
+            col3.metric("Moisture C", latest_data["mC"])
 
-        # ML Prediction
-        X = [[latest["mA"], latest["temp"], latest["hum"]]]
-        pred = model.predict(X)
+            st.write("🌡 Temperature:", latest_data["temp"])
+            st.write("💧 Humidity:", latest_data["hum"])
 
-        st.subheader("🌾 Yield Prediction")
-        st.write(pred[0])
+            st.write("🚿 Pump:", "ON" if latest_data["pump"] else "OFF")
 
-        # Crop suggestion
-        if latest["mA"] > 70:
-            crop = "Rice"
-        elif latest["mA"] > 50:
-            crop = "Wheat"
+            st.write("Valve A:", latest_data["vA"])
+            st.write("Valve B:", latest_data["vB"])
+            st.write("Valve C:", latest_data["vC"])
+
+            # ML Prediction
+            X = [[latest_data["mA"], latest_data["temp"], latest_data["hum"]]]
+            pred = model.predict(X)
+
+            st.subheader("🌾 Yield Prediction")
+            st.success(f"{pred[0]:.2f} %")
+
+            # Crop Suggestion
+            if latest_data["mA"] > 70:
+                crop = "Rice 🌾"
+            elif latest_data["mA"] > 50:
+                crop = "Wheat 🌿"
+            else:
+                crop = "Millets 🌱"
+
+            st.subheader("🌱 Suggested Crop")
+            st.info(crop)
+
         else:
-            crop = "Millets"
-
-        st.subheader("🌱 Suggested Crop")
-        st.write(crop)
+            st.warning("Waiting for MQTT data...")
 
     time.sleep(2)
